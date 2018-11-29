@@ -254,6 +254,9 @@ public abstract class DfuBaseService extends IntentService implements DfuProgres
 	 * See {@link #EXTRA_FILE_PATH} for details.
 	 */
 	public static final String EXTRA_FILE_RES_ID = "no.nordicsemi.android.dfu.extra.EXTRA_FILE_RES_ID";
+
+	public static final String EXTRA_FILE_BYTE_ARRAY = "no.nordicsemi.android.dfu.extra.EXTRA_FILE_BYTE_ARRAY";
+
 	/**
 	 * The Init packet URI. This file is required if the Extended Init Packet is required (SDK 7.0+). Must point to a 'dat' file corresponding with the selected firmware.
 	 * The Init packet may contain just the CRC (in case of older versions of DFU) or the Extended Init Packet in binary format (SDK 7.0+).
@@ -273,10 +276,14 @@ public abstract class DfuBaseService extends IntentService implements DfuProgres
 	 * The input file mime-type. Currently only "application/zip" (ZIP) or "application/octet-stream" (HEX or BIN) are supported. If this parameter is
 	 * empty the "application/octet-stream" is assumed.
 	 */
+
+	public static final String EXTRA_INIT_BYTE_ARRAY = "no.nordicsemi.android.dfu.extra.EXTRA_INIT_BYTE_ARRAY";
+
 	public static final String EXTRA_FILE_MIME_TYPE = "no.nordicsemi.android.dfu.extra.EXTRA_MIME_TYPE";
 	// Since the DFU Library version 0.5 both HEX and BIN files are supported. As both files have the same MIME TYPE the distinction is made based on the file extension.
 	public static final String MIME_TYPE_OCTET_STREAM = "application/octet-stream";
 	public static final String MIME_TYPE_ZIP = "application/zip";
+	public static final String MIME_TYPE_BIN_BYTE_ARRAY = "application/bin-byte-array";
 	/**
 	 * This optional extra parameter may contain a file type. Currently supported are:
 	 * <ul>
@@ -962,23 +969,35 @@ public abstract class DfuBaseService extends IntentService implements DfuProgres
 		final String filePath = intent.getStringExtra(EXTRA_FILE_PATH);
 		final Uri fileUri = intent.getParcelableExtra(EXTRA_FILE_URI);
 		final int fileResId = intent.getIntExtra(EXTRA_FILE_RES_ID, 0);
+		final byte[] fileByteArray = intent.getByteArrayExtra(EXTRA_FILE_BYTE_ARRAY);
 		final String initFilePath = intent.getStringExtra(EXTRA_INIT_FILE_PATH);
 		final Uri initFileUri = intent.getParcelableExtra(EXTRA_INIT_FILE_URI);
 		final int initFileResId = intent.getIntExtra(EXTRA_INIT_FILE_RES_ID, 0);
+		final byte[] initByteArray = intent.getByteArrayExtra(EXTRA_INIT_BYTE_ARRAY);
 		int fileType = intent.getIntExtra(EXTRA_FILE_TYPE, TYPE_AUTO);
 		if (filePath != null && fileType == TYPE_AUTO)
 			fileType = filePath.toLowerCase(Locale.US).endsWith("zip") ? TYPE_AUTO : TYPE_APPLICATION;
 		String mimeType = intent.getStringExtra(EXTRA_FILE_MIME_TYPE);
-		mimeType = mimeType != null ? mimeType : (fileType == TYPE_AUTO ? MIME_TYPE_ZIP : MIME_TYPE_OCTET_STREAM);
+		if (mimeType == null ) {
+			if (fileType == TYPE_AUTO) {
+				mimeType = MIME_TYPE_ZIP;
+			} else {
+				logw("mimeTyepe not set");
+				sendLogBroadcast(LOG_LEVEL_WARNING, "File type or file mime-type not supported");
+				report(ERROR_FILE_TYPE_UNSUPPORTED);
+				return;
+			}
+		}
 
 		// Check file type and mime-type
-		if ((fileType & ~(TYPE_SOFT_DEVICE | TYPE_BOOTLOADER | TYPE_APPLICATION)) > 0 || !(MIME_TYPE_ZIP.equals(mimeType) || MIME_TYPE_OCTET_STREAM.equals(mimeType))) {
+		if ((fileType & ~(TYPE_SOFT_DEVICE | TYPE_BOOTLOADER | TYPE_APPLICATION)) > 0 || !(MIME_TYPE_ZIP.equals(mimeType) || MIME_TYPE_OCTET_STREAM.equals(mimeType) || MIME_TYPE_BIN_BYTE_ARRAY.equals(mimeType))) {
 			logw("File type or file mime-type not supported");
 			sendLogBroadcast(LOG_LEVEL_WARNING, "File type or file mime-type not supported");
 			report(ERROR_FILE_TYPE_UNSUPPORTED);
 			return;
 		}
-		if (MIME_TYPE_OCTET_STREAM.equals(mimeType) && fileType != TYPE_SOFT_DEVICE && fileType != TYPE_BOOTLOADER && fileType != TYPE_APPLICATION) {
+		if ((MIME_TYPE_OCTET_STREAM.equals(mimeType) || MIME_TYPE_BIN_BYTE_ARRAY.equals(mimeType)) &&
+				fileType != TYPE_SOFT_DEVICE && fileType != TYPE_BOOTLOADER && fileType != TYPE_APPLICATION) {
 			logw("Unable to determine file type");
 			sendLogBroadcast(LOG_LEVEL_WARNING, "Unable to determine file type");
 			report(ERROR_FILE_TYPE_UNSUPPORTED);
@@ -1042,6 +1061,8 @@ public abstract class DfuBaseService extends IntentService implements DfuProgres
 						is = openInputStream(filePath, mimeType, mbrSize, fileType);
 					} else if (fileResId > 0) {
 						is = openInputStream(fileResId, mimeType, mbrSize, fileType);
+					} else if (fileByteArray != null) {
+						is = new ByteArrayInputStream(fileByteArray);
 					}
 
 					// The Init file Input Stream is kept global only in case it was provided
@@ -1057,6 +1078,8 @@ public abstract class DfuBaseService extends IntentService implements DfuProgres
 					} else if (initFileResId > 0) {
 						// Try to read the Init Packet file from given resource
 						initIs = getResources().openRawResource(initFileResId);
+					} else if (initByteArray != null) {
+						initIs = new ByteArrayInputStream(initByteArray);
 					}
 
 					final int imageSizeInBytes = is.available();

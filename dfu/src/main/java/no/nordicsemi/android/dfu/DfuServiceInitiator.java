@@ -40,6 +40,10 @@ import android.support.annotation.RequiresApi;
 import java.security.InvalidParameterException;
 import java.util.UUID;
 
+import javax.naming.SizeLimitExceededException;
+
+import no.nordicsemi.android.dfu.internal.exception.SizeValidationException;
+
 /**
  * Starting the DfuService service requires a knowledge of some EXTRA_* constants used to pass
  * parameters to the service. The DfuServiceInitiator class may be used to make this process easier.
@@ -54,6 +58,12 @@ public class DfuServiceInitiator {
 	/** Constant used to narrow the scope of the update to application only. */
 	public static final int SCOPE_APPLICATION = 3542;
 
+	/** Constant used to check if the byte array is too big to pass around in a bundle
+	 *  Combined max size of a bundle is around 500kB : https://www.neotechsoftware.com/blog/android-intent-size-limit
+	 *  Since we pass around other stuff, I've limited it to 300kB, which should be (hopefully) a safe number.
+	 */
+	private static final int BUNDLE_EXTRA_MAX_BYTE_ARRAY_SIZE = 300*1024;
+
 	private final String deviceAddress;
 	private String deviceName;
 
@@ -63,10 +73,12 @@ public class DfuServiceInitiator {
 	private Uri fileUri;
 	private String filePath;
 	private int fileResId;
+	private byte[] fileByteArray;
 
 	private Uri initFileUri;
 	private String initFilePath;
 	private int initFileResId;
+	private byte[] initByteArray;
 
 	private String mimeType;
 	private int fileType = -1;
@@ -501,7 +513,7 @@ public class DfuServiceInitiator {
 	 * @see #setZip(int)
 	 */
 	public DfuServiceInitiator setZip(@NonNull final Uri uri) {
-		return init(uri, null, 0, DfuBaseService.TYPE_AUTO, DfuBaseService.MIME_TYPE_ZIP);
+		return initFile(uri, null, 0, DfuBaseService.TYPE_AUTO, DfuBaseService.MIME_TYPE_ZIP, null);
 	}
 
 	/**
@@ -514,7 +526,7 @@ public class DfuServiceInitiator {
 	 * @see #setZip(int)
 	 */
 	public DfuServiceInitiator setZip(@NonNull final String path) {
-		return init(null, path, 0, DfuBaseService.TYPE_AUTO, DfuBaseService.MIME_TYPE_ZIP);
+		return initFile(null, path, 0, DfuBaseService.TYPE_AUTO, DfuBaseService.MIME_TYPE_ZIP, null);
 	}
 
 	/**
@@ -527,7 +539,7 @@ public class DfuServiceInitiator {
 	 * @see #setZip(String)
 	 */
 	public DfuServiceInitiator setZip(final int rawResId) {
-		return init(null, null, rawResId, DfuBaseService.TYPE_AUTO, DfuBaseService.MIME_TYPE_ZIP);
+		return initFile(null, null, rawResId, DfuBaseService.TYPE_AUTO, DfuBaseService.MIME_TYPE_ZIP, null);
 	}
 
 	/**
@@ -540,7 +552,7 @@ public class DfuServiceInitiator {
 	 * @return the builder
 	 */
 	public DfuServiceInitiator setZip(@Nullable final Uri uri, @Nullable final String path) {
-		return init(uri, path, 0, DfuBaseService.TYPE_AUTO, DfuBaseService.MIME_TYPE_ZIP);
+		return initFile(uri, path, 0, DfuBaseService.TYPE_AUTO, DfuBaseService.MIME_TYPE_ZIP, null);
 	}
 
 	/**
@@ -561,7 +573,7 @@ public class DfuServiceInitiator {
 	public DfuServiceInitiator setBinOrHex(final int fileType, @NonNull final Uri uri) {
 		if (fileType == DfuBaseService.TYPE_AUTO)
 			throw new UnsupportedOperationException("You must specify the file type");
-		return init(uri, null, 0, fileType, DfuBaseService.MIME_TYPE_OCTET_STREAM);
+		return initFile(uri, null, 0, fileType, DfuBaseService.MIME_TYPE_OCTET_STREAM, null);
 	}
 
 	/**
@@ -577,7 +589,7 @@ public class DfuServiceInitiator {
 	public DfuServiceInitiator setBinOrHex(final int fileType, @NonNull final String path) {
 		if (fileType == DfuBaseService.TYPE_AUTO)
 			throw new UnsupportedOperationException("You must specify the file type");
-		return init(null, path, 0, fileType, DfuBaseService.MIME_TYPE_OCTET_STREAM);
+		return initFile(null, path, 0, fileType, DfuBaseService.MIME_TYPE_OCTET_STREAM, null);
 	}
 
 	/**
@@ -595,7 +607,7 @@ public class DfuServiceInitiator {
 	public DfuServiceInitiator setBinOrHex(final int fileType, @Nullable final Uri uri, @Nullable final String path) {
 		if (fileType == DfuBaseService.TYPE_AUTO)
 			throw new UnsupportedOperationException("You must specify the file type");
-		return init(uri, path, 0, fileType, DfuBaseService.MIME_TYPE_OCTET_STREAM);
+		return initFile(uri, path, 0, fileType, DfuBaseService.MIME_TYPE_OCTET_STREAM, null);
 	}
 
 	/**
@@ -611,8 +623,29 @@ public class DfuServiceInitiator {
 	public DfuServiceInitiator setBinOrHex(final int fileType, final int rawResId) {
 		if (fileType == DfuBaseService.TYPE_AUTO)
 			throw new UnsupportedOperationException("You must specify the file type");
-		return init(null, null, rawResId, fileType, DfuBaseService.MIME_TYPE_OCTET_STREAM);
+		return initFile(null, null, rawResId, fileType, DfuBaseService.MIME_TYPE_OCTET_STREAM, null);
 	}
+
+	/**
+	 * Sets the resource ID pointing the BIN or HEX file containing the new firmware.
+	 * The file should be in the /res/raw folder. For DFU Bootloader version 0.5 or newer the init
+	 * file must be specified using one of {@link #setInitFile(int)} methods.
+	 *
+	 * @param fileType see {@link #setBinOrHex(int, Uri)} for details
+	 * @param fileByteArray byte array with firmware bytes loaded
+	 * @return the builder
+	 * @throws SizeLimitExceededException if the input byte array is too big to safely pass around in a bundle.
+	 */
+	public DfuServiceInitiator setBinOrHex(final int fileType, final byte[] fileByteArray) throws SizeValidationException {
+		if (fileByteArray.length > BUNDLE_EXTRA_MAX_BYTE_ARRAY_SIZE) {
+			throw new SizeValidationException("Byte array for file too big: " + fileByteArray.length);
+		}
+		if (fileType == DfuBaseService.TYPE_AUTO) {
+			throw new UnsupportedOperationException("You must specify the file type");
+		}
+		return initFile(null, null, 0, fileType, DfuBaseService.MIME_TYPE_BIN_BYTE_ARRAY, fileByteArray);
+	}
+
 
 	/**
 	 * Sets the URI of the Init file. The init file for DFU Bootloader version pre-0.5
@@ -624,7 +657,7 @@ public class DfuServiceInitiator {
 	 */
 	@Deprecated
 	public DfuServiceInitiator setInitFile(@NonNull final Uri initFileUri) {
-		return init(initFileUri, null, 0);
+		return initInit(initFileUri, null, 0, null);
 	}
 
 	/**
@@ -637,7 +670,7 @@ public class DfuServiceInitiator {
 	 */
 	@Deprecated
 	public DfuServiceInitiator setInitFile(@Nullable final String initFilePath) {
-		return init(null, initFilePath, 0);
+		return initInit(null, initFilePath, 0, null);
 	}
 
 	/**
@@ -650,7 +683,7 @@ public class DfuServiceInitiator {
 	 */
 	@Deprecated
 	public DfuServiceInitiator setInitFile(final int initFileResId) {
-		return init(null, null, initFileResId);
+		return initInit(null, null, initFileResId, null);
 	}
 
 	/**
@@ -664,7 +697,23 @@ public class DfuServiceInitiator {
 	 */
 	@Deprecated
 	public DfuServiceInitiator setInitFile(@Nullable final Uri initFileUri, @Nullable final String initFilePath) {
-		return init(initFileUri, initFilePath, 0);
+		return initInit(initFileUri, initFilePath, 0, null);
+	}
+
+	/**
+	 * Sets the resource ID of the Init file. The init file for DFU Bootloader version pre-0.5
+	 * (SDK 4.3, 6.0, 6.1) contains only the CRC-16 of the firmware.
+	 * Bootloader version 0.5 or newer requires the Extended Init Packet.
+	 *
+	 * @param initByteArray byte array with the init (DAT) file bytes loaded
+	 * @return the builder
+	 * @throws SizeLimitExceededException if the input byte array is too big to safely pass around in a bundle.
+	 */
+	public DfuServiceInitiator setInitFile(final byte[] initByteArray) throws SizeValidationException {
+		if (initByteArray.length > BUNDLE_EXTRA_MAX_BYTE_ARRAY_SIZE) {
+			throw new SizeValidationException("Byte array for init file too big: " + initByteArray.length);
+		}
+		return initInit(null, null, 0, initByteArray);
 	}
 
 	/**
@@ -688,9 +737,11 @@ public class DfuServiceInitiator {
 		intent.putExtra(DfuBaseService.EXTRA_FILE_URI, fileUri);
 		intent.putExtra(DfuBaseService.EXTRA_FILE_PATH, filePath);
 		intent.putExtra(DfuBaseService.EXTRA_FILE_RES_ID, fileResId);
+		intent.putExtra(DfuBaseService.EXTRA_FILE_BYTE_ARRAY, fileByteArray);
 		intent.putExtra(DfuBaseService.EXTRA_INIT_FILE_URI, initFileUri);
 		intent.putExtra(DfuBaseService.EXTRA_INIT_FILE_PATH, initFilePath);
 		intent.putExtra(DfuBaseService.EXTRA_INIT_FILE_RES_ID, initFileResId);
+		intent.putExtra(DfuBaseService.EXTRA_INIT_BYTE_ARRAY, initByteArray);
 		intent.putExtra(DfuBaseService.EXTRA_KEEP_BOND, keepBond);
 		intent.putExtra(DfuBaseService.EXTRA_RESTORE_BOND, restoreBond);
 		intent.putExtra(DfuBaseService.EXTRA_FORCE_DFU, forceDfu);
@@ -730,26 +781,30 @@ public class DfuServiceInitiator {
 		return new DfuServiceController(context);
 	}
 
-	private DfuServiceInitiator init(@Nullable final Uri initFileUri,
+	private DfuServiceInitiator initInit(@Nullable final Uri initFileUri,
 									 @Nullable final String initFilePath,
-									 final int initFileResId) {
+									 final int initFileResId,
+									 @Nullable byte[] initByteArray) {
 		if (DfuBaseService.MIME_TYPE_ZIP.equals(mimeType))
 			throw new InvalidParameterException("Init file must be located inside the ZIP");
 
 		this.initFileUri = initFileUri;
 		this.initFilePath = initFilePath;
 		this.initFileResId = initFileResId;
+		this.initByteArray = initByteArray;
 		return this;
 	}
 
-	private DfuServiceInitiator init(@Nullable final Uri fileUri,
+	private DfuServiceInitiator initFile(@Nullable final Uri fileUri,
 									 @Nullable final String filePath,
 									 final int fileResId, final int fileType,
-									 @NonNull final String mimeType) {
+									 @NonNull final String mimeType,
+									 @Nullable byte[] fileByteArray) {
 		this.fileUri = fileUri;
 		this.filePath = filePath;
 		this.fileResId = fileResId;
 		this.fileType = fileType;
+		this.fileByteArray = fileByteArray;
 		this.mimeType = mimeType;
 
 		// If the MIME TYPE implies it's a ZIP file then the init file must be included in the file.
