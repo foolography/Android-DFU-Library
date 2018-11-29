@@ -40,8 +40,6 @@ import android.support.annotation.RequiresApi;
 import java.security.InvalidParameterException;
 import java.util.UUID;
 
-import javax.naming.SizeLimitExceededException;
-
 import no.nordicsemi.android.dfu.internal.exception.SizeValidationException;
 
 /**
@@ -634,8 +632,7 @@ public class DfuServiceInitiator {
 	 * @param fileType see {@link #setBinOrHex(int, Uri)} for details
 	 * @param fileByteArray byte array with firmware bytes loaded
 	 * @return the builder
-	 * @throws SizeLimitExceededException if the input byte array is too big to safely pass around in a bundle.
-	 */
+	SizeValidationException	 */
 	public DfuServiceInitiator setBinOrHex(final int fileType, final byte[] fileByteArray) throws SizeValidationException {
 		if (fileByteArray.length > BUNDLE_EXTRA_MAX_BYTE_ARRAY_SIZE) {
 			throw new SizeValidationException("Byte array for file too big: " + fileByteArray.length);
@@ -707,7 +704,7 @@ public class DfuServiceInitiator {
 	 *
 	 * @param initByteArray byte array with the init (DAT) file bytes loaded
 	 * @return the builder
-	 * @throws SizeLimitExceededException if the input byte array is too big to safely pass around in a bundle.
+	 * @throws SizeValidationException if the input byte array is too big to safely pass around in a bundle.
 	 */
 	public DfuServiceInitiator setInitFile(final byte[] initByteArray) throws SizeValidationException {
 		if (initByteArray.length > BUNDLE_EXTRA_MAX_BYTE_ARRAY_SIZE) {
