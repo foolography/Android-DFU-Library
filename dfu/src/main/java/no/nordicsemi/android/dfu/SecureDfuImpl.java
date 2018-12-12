@@ -230,6 +230,8 @@ class SecureDfuImpl extends BaseCustomDfuImpl {
 
 			final boolean allowResume = !intent.hasExtra(DfuBaseService.EXTRA_DISABLE_RESUME)
 					|| !intent.getBooleanExtra(DfuBaseService.EXTRA_DISABLE_RESUME, false);
+			final boolean allowAutoDisconnect = !intent.hasExtra(DfuBaseService.EXTRA_DISABLE_AUTO_DISCONNECT)
+					|| !intent.getBooleanExtra(DfuBaseService.EXTRA_DISABLE_AUTO_DISCONNECT, false);
 			if (!allowResume)
 				logi("Resume feature disabled. Performing fresh DFU");
 			try {
@@ -267,7 +269,13 @@ class SecureDfuImpl extends BaseCustomDfuImpl {
 			mService.sendLogBroadcast(DfuBaseService.LOG_LEVEL_INFO, "Disconnected by the remote device");
 
 			// We are ready with DFU, the device is disconnected, let's close it and finalize the operation.
-			finalize(intent, false);
+			if (allowAutoDisconnect || !mProgressInfo.isLastPart()) {
+				// if auto disconnect is allowed or it's not the last part of the update (multi part zip file)
+				finalize(intent, false);
+			} else if (mProgressInfo.isLastPart()) { // if auto disconnect is disallowed and it's the last part
+				// Notify the controlling layers of dfu completion
+				mProgressInfo.setProgress(DfuBaseService.PROGRESS_COMPLETED);
+			}
 		} catch (final UploadAbortedException e) {
 			// In secure DFU there is currently not possible to reset the device to application mode, so... do nothing
 			// The connection will be terminated in the DfuBaseService

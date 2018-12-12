@@ -22,6 +22,8 @@
 
 package no.nordicsemi.android.dfu;
 
+import android.bluetooth.BluetoothGattCharacteristic;
+
 /* package */ public interface DfuController {
 
 	/**

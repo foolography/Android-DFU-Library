@@ -181,6 +181,12 @@ public abstract class DfuBaseService extends IntentService implements DfuProgres
 	 */
 	public static final String EXTRA_DISABLE_RESUME = "no.nordicsemi.android.dfu.extra.EXTRA_DISABLE_RESUME";
 	/**
+	 * This option allows to disable the automatic Disconnect/Finalize feature in the Secure DFU.
+	 * Disconnect/Finalize operation will need to be carried out manually (allowing for custom write
+	 * operations after the normal dfu is complete).
+	 */
+	public static final String EXTRA_DISABLE_AUTO_DISCONNECT = "no.nordicsemi.android.dfu.extra.EXTRA_DISABLE_AUTO_DISCONNECT";
+	/**
 	 * This extra allows you to control the MTU that will be requested (on Lollipop or newer devices).
 	 * If the field is null, the service will not request higher MTU and will use MTU = 23
 	 * (even if it has been set to a higher value before).
