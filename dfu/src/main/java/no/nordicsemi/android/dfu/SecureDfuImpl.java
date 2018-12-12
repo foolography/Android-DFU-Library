@@ -907,8 +907,14 @@ class SecureDfuImpl extends BaseCustomDfuImpl {
 	}
 
 	@Override
-	public void finalize() {
-		if (mProgressInfo.isLastPart() && mProgressInfo.isComplete() && performDfuIntent != null) {
+	public void finalizeDfu() {
+		loge("finalizeDfu");
+		if (mProgressInfo.isLastPart() &&
+				performDfuIntent != null &&
+				(mProgressInfo.getProgress() == DfuBaseService.PROGRESS_COMPLETED ||
+					mProgressInfo.getProgress() == DfuBaseService.PROGRESS_DISCONNECTING ||
+					mProgressInfo.isComplete() ||
+					mProgressInfo.isObjectComplete())) {
 			finalize(performDfuIntent, false);
 		}
 	}
@@ -918,9 +924,21 @@ class SecureDfuImpl extends BaseCustomDfuImpl {
 		if (mProgressInfo.isLastPart() && mProgressInfo.isComplete()) {
 			BluetoothGattCharacteristic characteristic = findBluetoothGattCharacteristic(characteristicUuid);
 			if (characteristic != null) {
+				String msg = "write uuid " + characteristicUuid.toString() + ": ";
 				try {
 					writeOpCode(characteristic, bytes);
-				} catch (Exception e) {
+				} catch (DfuException e) {
+					if (e.getErrorNumber() == 133) {
+						logw(msg + e.getMessage());
+						mService.sendLogBroadcast(DfuBaseService.LOG_LEVEL_ERROR, msg + e.getMessage());
+					} else {
+						e.printStackTrace();
+						mService.sendLogBroadcast(DfuBaseService.LOG_LEVEL_ERROR, msg + e.getMessage());
+					}
+				} catch (DeviceDisconnectedException e) {
+					logw(msg + e.getMessage());
+					mService.sendLogBroadcast(DfuBaseService.LOG_LEVEL_ERROR, msg + e.getMessage());
+				} catch (UploadAbortedException e) {
 					e.printStackTrace();
 				}
 			}

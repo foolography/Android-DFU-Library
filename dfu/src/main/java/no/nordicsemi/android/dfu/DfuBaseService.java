@@ -708,9 +708,9 @@ public abstract class DfuBaseService extends IntentService implements DfuProgres
 						mDfuServiceImpl.abort();
 					break;
 				case ACTION_FINALIZE:
-					sendLogBroadcast(LOG_LEVEL_WARNING, "[Broadcast] Finalize action received");
+					sendLogBroadcast(LOG_LEVEL_WARNING, "[Broadcast] FinalizeDfu action received");
 					if (mDfuServiceImpl != null)
-						mDfuServiceImpl.finalize();
+						mDfuServiceImpl.finalizeDfu();
 					break;
 				case ACTION_WRITE:
 					final UUID uuid = ((ParcelUuid) intent.getParcelableExtra(EXTRA_WRITE_UUID)).getUuid();

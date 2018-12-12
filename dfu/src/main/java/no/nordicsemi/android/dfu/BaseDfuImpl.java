@@ -268,7 +268,8 @@ import no.nordicsemi.android.dfu.internal.scanner.BootloaderScannerFactory;
 	}
 
 	@Override
-	public void finalize() {
+	public void finalizeDfu() {
+		(new Exception("base layer finalize")).printStackTrace();
 		// in the base layer there's nothing to do for this
 	}
 

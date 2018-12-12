@@ -49,7 +49,7 @@ import java.util.UUID;
 	 * Finalizes the DFU when using SecureDFU, if disableAutoDisconnect was set.
 	 * This will only have any effect after the normal DFU has been completed with the SecureDFU.
 	 */
-	void finalize();
+	void finalizeDfu();
 
 	/**
 	 * Writes data to a characteristic when using SecureDFU.

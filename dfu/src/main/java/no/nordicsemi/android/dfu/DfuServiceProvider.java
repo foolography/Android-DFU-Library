@@ -108,9 +108,9 @@ import no.nordicsemi.android.dfu.internal.exception.UploadAbortedException;
 	}
 
 	@Override
-	public void finalize() {
+	public void finalizeDfu() {
 		if (mImpl != null)
-			mImpl.finalize();
+			mImpl.finalizeDfu();
 	}
 
 	@Override

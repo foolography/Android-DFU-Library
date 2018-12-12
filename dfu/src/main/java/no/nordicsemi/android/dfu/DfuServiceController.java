@@ -78,7 +78,7 @@ public class DfuServiceController implements DfuController {
 	}
 
 	@Override
-	public void finalize() {
+	public void finalizeDfu() {
 		final Intent finalizeAction = new Intent(DfuBaseService.BROADCAST_ACTION);
 		finalizeAction.putExtra(DfuBaseService.EXTRA_ACTION, DfuBaseService.ACTION_FINALIZE);
 		mBroadcastManager.sendBroadcast(finalizeAction);
