@@ -632,6 +632,23 @@ public abstract class DfuBaseService extends IntentService implements DfuProgres
 	public static final String EXTRA_NOTIFICATION_UUID_CHARACTERISTIC = "no.nordicsemi.android.dfu.extra.EXTRA_NOTIFICATION_UUID_CHARACTERISTIC";
 	public static final String EXTRA_NOTIFICATION_DATA_BYTEARRAY = "no.nordicsemi.android.dfu.extra.EXTRA_NOTIFICATION_DATA_BYTEARRAY";
 
+
+	/**
+	 * Finalizes the DFU when using SecureDFU, if disableAutoDisconnect was set.
+	 * This will only have any effect after the normal DFU has been completed with the SecureDFU.
+	 */
+	public static final int ACTION_FINALIZE = 3;
+
+	/**
+	 * Writes data to a characteristic when using SecureDFU.
+	 * This will only have any effect after the normal DFU has been completed with the SecureDFU.
+	 */
+	public static final int ACTION_WRITE = 4;
+	public static final String EXTRA_WRITE_UUID = "no.nordicsemi.android.dfu.extra.EXTRA_WRITE_UUID";
+	public static final String EXTRA_WRITE_DATA_BYTE_ARRAY = "no.nordicsemi.android.dfu.extra.EXTRA_WRITE_DATA_BYTE_ARRAY";
+
+
+
 	/**
 	 * Lock used in synchronization purposes
 	 */
@@ -690,6 +707,19 @@ public abstract class DfuBaseService extends IntentService implements DfuProgres
 					if (mDfuServiceImpl != null)
 						mDfuServiceImpl.abort();
 					break;
+				case ACTION_FINALIZE:
+					sendLogBroadcast(LOG_LEVEL_WARNING, "[Broadcast] Finalize action received");
+					if (mDfuServiceImpl != null)
+						mDfuServiceImpl.finalize();
+					break;
+				case ACTION_WRITE:
+					final UUID uuid = ((ParcelUuid) intent.getParcelableExtra(EXTRA_WRITE_UUID)).getUuid();
+					final byte[] data = intent.getByteArrayExtra(EXTRA_WRITE_DATA_BYTE_ARRAY);
+					sendLogBroadcast(LOG_LEVEL_WARNING, "[Broadcast] Write action received for " + uuid.toString());
+					if (mDfuServiceImpl != null)
+						mDfuServiceImpl.write(uuid, data);
+					break;
+
 			}
 		}
 	};

@@ -24,7 +24,11 @@ package no.nordicsemi.android.dfu;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.ParcelUuid;
+import android.support.annotation.NonNull;
 import android.support.v4.content.LocalBroadcastManager;
+
+import java.util.UUID;
 
 /**
  * A controller class allows you to pause, resume or abort the DFU operation in a easy way.
@@ -72,6 +76,23 @@ public class DfuServiceController implements DfuController {
 			mBroadcastManager.sendBroadcast(pauseAction);
 		}
 	}
+
+	@Override
+	public void finalize() {
+		final Intent finalizeAction = new Intent(DfuBaseService.BROADCAST_ACTION);
+		finalizeAction.putExtra(DfuBaseService.EXTRA_ACTION, DfuBaseService.ACTION_FINALIZE);
+		mBroadcastManager.sendBroadcast(finalizeAction);
+	}
+
+	@Override
+	public void write(@NonNull UUID characteristicUuid, @NonNull byte[] bytes) {
+		final Intent writeAction = new Intent(DfuBaseService.BROADCAST_ACTION);
+		writeAction.putExtra(DfuBaseService.EXTRA_ACTION, DfuBaseService.ACTION_WRITE);
+		writeAction.putExtra(DfuBaseService.EXTRA_WRITE_UUID, new ParcelUuid(characteristicUuid));
+		writeAction.putExtra(DfuBaseService.EXTRA_WRITE_DATA_BYTE_ARRAY, bytes);
+		mBroadcastManager.sendBroadcast(writeAction);
+	}
+
 
 	/**
 	 * Returns true if the DFU operation was paused.

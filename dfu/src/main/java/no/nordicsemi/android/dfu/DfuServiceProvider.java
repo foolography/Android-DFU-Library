@@ -24,6 +24,9 @@ package no.nordicsemi.android.dfu;
 
 import android.bluetooth.BluetoothGatt;
 import android.content.Intent;
+import android.support.annotation.NonNull;
+
+import java.util.UUID;
 
 import no.nordicsemi.android.dfu.internal.exception.DeviceDisconnectedException;
 import no.nordicsemi.android.dfu.internal.exception.DfuException;
@@ -102,5 +105,17 @@ import no.nordicsemi.android.dfu.internal.exception.UploadAbortedException;
 		mAborted = true;
 		if (mImpl != null)
 			mImpl.abort();
+	}
+
+	@Override
+	public void finalize() {
+		if (mImpl != null)
+			mImpl.finalize();
+	}
+
+	@Override
+	public void write(@NonNull UUID characteristicUuid, @NonNull byte[] bytes) {
+		if (mImpl != null)
+			mImpl.write(characteristicUuid, bytes);
 	}
 }

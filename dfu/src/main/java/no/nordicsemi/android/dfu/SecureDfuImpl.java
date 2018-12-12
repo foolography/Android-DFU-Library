@@ -28,6 +28,7 @@ import android.bluetooth.BluetoothGattService;
 import android.content.Intent;
 import android.os.Build;
 import android.os.SystemClock;
+import android.support.annotation.NonNull;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -81,6 +82,8 @@ class SecureDfuImpl extends BaseCustomDfuImpl {
 	private BluetoothGattCharacteristic mPacketCharacteristic;
 
 	private final SecureBluetoothCallback mBluetoothCallback = new SecureBluetoothCallback();
+
+	private Intent performDfuIntent;
 
 	protected class SecureBluetoothCallback extends BaseCustomBluetoothCallback {
 
@@ -275,6 +278,7 @@ class SecureDfuImpl extends BaseCustomDfuImpl {
 			} else if (mProgressInfo.isLastPart()) { // if auto disconnect is disallowed and it's the last part
 				// Notify the controlling layers of dfu completion
 				mProgressInfo.setProgress(DfuBaseService.PROGRESS_COMPLETED);
+				performDfuIntent = intent;
 			}
 		} catch (final UploadAbortedException e) {
 			// In secure DFU there is currently not possible to reset the device to application mode, so... do nothing
@@ -902,6 +906,27 @@ class SecureDfuImpl extends BaseCustomDfuImpl {
 		}
 	}
 
+	@Override
+	public void finalize() {
+		if (mProgressInfo.isLastPart() && mProgressInfo.isComplete() && performDfuIntent != null) {
+			finalize(performDfuIntent, false);
+		}
+	}
+
+	@Override
+	public void write(@NonNull UUID characteristicUuid, @NonNull byte[] bytes) {
+		if (mProgressInfo.isLastPart() && mProgressInfo.isComplete()) {
+			BluetoothGattCharacteristic characteristic = findBluetoothGattCharacteristic(characteristicUuid);
+			if (characteristic != null) {
+				try {
+					writeOpCode(characteristic, bytes);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
 	private class ObjectInfo extends ObjectChecksum {
 		protected int maxSize;
 	}
@@ -910,4 +935,16 @@ class SecureDfuImpl extends BaseCustomDfuImpl {
 		protected int offset;
 		protected int CRC32;
 	}
+
+	private BluetoothGattCharacteristic findBluetoothGattCharacteristic(final UUID uuid) {
+		BluetoothGattCharacteristic characteristic;
+		for (BluetoothGattService service : mGatt.getServices()) {
+			characteristic = service.getCharacteristic(uuid);
+			if (characteristic != null) {
+				return characteristic;
+			}
+		}
+		return null;
+	}
+
 }
