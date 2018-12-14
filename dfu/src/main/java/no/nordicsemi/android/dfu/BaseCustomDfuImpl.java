@@ -408,7 +408,6 @@ import no.nordicsemi.android.dfu.internal.exception.UploadAbortedException;
 	 * @param forceRefresh true, if cache should be cleared even for a bonded device. Usually the Service Changed indication should be used for this purpose.
 	 */
 	protected void finalize(final Intent intent, final boolean forceRefresh) {
-		(new Exception("BaseCustomDfuImpl: finalize")).printStackTrace();
 		/*
 		 * We are done with DFU. Now the service may refresh device cache and clear stored services.
 		 * For bonded device this is required only if if doesn't support Service Changed indication.
