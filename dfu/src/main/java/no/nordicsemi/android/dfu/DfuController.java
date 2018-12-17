@@ -22,6 +22,10 @@
 
 package no.nordicsemi.android.dfu;
 
+import android.support.annotation.NonNull;
+
+import java.util.UUID;
+
 /* package */ public interface DfuController {
 
 	/**
@@ -40,4 +44,20 @@ package no.nordicsemi.android.dfu;
 	 * Aborts the DFU operation after it has started.
 	 */
 	void abort();
+
+	/**
+	 * Finalizes the DFU when using SecureDFU, if disableAutoDisconnect was set.
+	 * This will only have any effect after the normal DFU has been completed with the SecureDFU.
+	 */
+	void finalizeDfu();
+
+	/**
+	 * Writes data to a characteristic when using SecureDFU.
+	 * This will only have any effect after the normal DFU has been completed with the SecureDFU.
+	 * @param characteristicUuid	UUID of the characteristic to write to
+	 * @param bytes	data to write to
+	 */
+	void write(@NonNull UUID characteristicUuid, @NonNull byte[] bytes);
+
+
 }
