@@ -76,6 +76,7 @@ public class DfuServiceInitiator {
 	private boolean forceDfu = false;
 	private boolean enableUnsafeExperimentalButtonlessDfu = false;
 	private boolean disableResume = false;
+	private boolean disableAutoDisconnect = false;
 
 	private Boolean packetReceiptNotificationsEnabled;
 	private int numberOfPackets = 12;
@@ -259,6 +260,18 @@ public class DfuServiceInitiator {
 	 */
 	public DfuServiceInitiator disableResume() {
 		this.disableResume = true;
+		return this;
+	}
+
+	/**
+	 * This option allows to disable the automatic Disconnect/Finalize feature in the Secure DFU.
+	 * Disconnect/Finalize operation will need to be carried out manually (allowing for custom write
+	 * operations after the normal dfu is complete).
+	 *
+	 * @return the builder
+	 */
+	public DfuServiceInitiator disableAutoDisconnect() {
+		this.disableAutoDisconnect = true;
 		return this;
 	}
 
@@ -695,6 +708,7 @@ public class DfuServiceInitiator {
 		intent.putExtra(DfuBaseService.EXTRA_RESTORE_BOND, restoreBond);
 		intent.putExtra(DfuBaseService.EXTRA_FORCE_DFU, forceDfu);
 		intent.putExtra(DfuBaseService.EXTRA_DISABLE_RESUME, disableResume);
+		intent.putExtra(DfuBaseService.EXTRA_DISABLE_AUTO_DISCONNECT, disableAutoDisconnect);
 		if (mtu > 0)
 			intent.putExtra(DfuBaseService.EXTRA_MTU, mtu);
 		intent.putExtra(DfuBaseService.EXTRA_CURRENT_MTU, currentMtu);

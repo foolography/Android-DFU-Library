@@ -176,6 +176,12 @@ public abstract class DfuBaseService extends IntentService implements DfuProgres
 	 */
 	public static final String EXTRA_DISABLE_RESUME = "no.nordicsemi.android.dfu.extra.EXTRA_DISABLE_RESUME";
 	/**
+	 * This option allows to disable the automatic Disconnect/Finalize feature in the Secure DFU.
+	 * Disconnect/Finalize operation will need to be carried out manually (allowing for custom write
+	 * operations after the normal dfu is complete).
+	 */
+	public static final String EXTRA_DISABLE_AUTO_DISCONNECT = "no.nordicsemi.android.dfu.extra.EXTRA_DISABLE_AUTO_DISCONNECT";
+	/**
 	 * This extra allows you to control the MTU that will be requested (on Lollipop or newer devices).
 	 * If the field is null, the service will not request higher MTU and will use MTU = 23
 	 * (even if it has been set to a higher value before).
@@ -615,6 +621,23 @@ public abstract class DfuBaseService extends IntentService implements DfuProgres
 	public static final String EXTRA_CUSTOM_UUIDS_FOR_BUTTONLESS_DFU_WITHOUT_BOND_SHARING = "no.nordicsemi.android.dfu.extra.EXTRA_CUSTOM_UUIDS_FOR_BUTTONLESS_DFU_WITHOUT_BOND_SHARING";
 	public static final String EXTRA_CUSTOM_UUIDS_FOR_BUTTONLESS_DFU_WITH_BOND_SHARING = "no.nordicsemi.android.dfu.extra.EXTRA_CUSTOM_UUIDS_FOR_BUTTONLESS_DFU_WITH_BOND_SHARING";
 
+
+	/**
+	 * Finalizes the DFU when using SecureDFU, if disableAutoDisconnect was set.
+	 * This will only have any effect after the normal DFU has been completed with the SecureDFU.
+	 */
+	public static final int ACTION_FINALIZE = 3;
+
+	/**
+	 * Writes data to a characteristic when using SecureDFU.
+	 * This will only have any effect after the normal DFU has been completed with the SecureDFU.
+	 */
+	public static final int ACTION_WRITE = 4;
+	public static final String EXTRA_WRITE_UUID = "no.nordicsemi.android.dfu.extra.EXTRA_WRITE_UUID";
+	public static final String EXTRA_WRITE_DATA_BYTE_ARRAY = "no.nordicsemi.android.dfu.extra.EXTRA_WRITE_DATA_BYTE_ARRAY";
+
+
+
 	/**
 	 * Lock used in synchronization purposes
 	 */
@@ -673,6 +696,19 @@ public abstract class DfuBaseService extends IntentService implements DfuProgres
 					if (mDfuServiceImpl != null)
 						mDfuServiceImpl.abort();
 					break;
+				case ACTION_FINALIZE:
+					sendLogBroadcast(LOG_LEVEL_WARNING, "[Broadcast] FinalizeDfu action received");
+					if (mDfuServiceImpl != null)
+						mDfuServiceImpl.finalizeDfu();
+					break;
+				case ACTION_WRITE:
+					final UUID uuid = ((ParcelUuid) intent.getParcelableExtra(EXTRA_WRITE_UUID)).getUuid();
+					final byte[] data = intent.getByteArrayExtra(EXTRA_WRITE_DATA_BYTE_ARRAY);
+					sendLogBroadcast(LOG_LEVEL_WARNING, "[Broadcast] Write action received for " + uuid.toString());
+					if (mDfuServiceImpl != null)
+						mDfuServiceImpl.write(uuid, data);
+					break;
+
 			}
 		}
 	};

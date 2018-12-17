@@ -29,6 +29,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.preference.PreferenceManager;
+import android.util.Log;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -217,7 +218,8 @@ import no.nordicsemi.android.dfu.internal.exception.UploadAbortedException;
 		}
 
 		protected void handleNotification(final BluetoothGatt gatt, final BluetoothGattCharacteristic characteristic) {
-			mService.sendLogBroadcast(DfuBaseService.LOG_LEVEL_INFO, "Notification received from " + characteristic.getUuid() + ", value (0x): " + parse(characteristic));
+			if (mService != null)
+				mService.sendLogBroadcast(DfuBaseService.LOG_LEVEL_INFO, "Notification received from " + characteristic.getUuid() + ", value (0x): " + parse(characteristic));
 			mReceivedData = characteristic.getValue();
 			mFirmwareUploadInProgress = false;
 		}
@@ -480,4 +482,6 @@ import no.nordicsemi.android.dfu.internal.exception.UploadAbortedException;
 			restartService(newIntent, /* the bootloader may advertise with different address */ true);
 		}
 	}
+
+
 }

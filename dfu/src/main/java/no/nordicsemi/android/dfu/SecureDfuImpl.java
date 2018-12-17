@@ -28,6 +28,7 @@ import android.bluetooth.BluetoothGattService;
 import android.content.Intent;
 import android.os.Build;
 import android.os.SystemClock;
+import android.support.annotation.NonNull;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -81,6 +82,8 @@ class SecureDfuImpl extends BaseCustomDfuImpl {
 	private BluetoothGattCharacteristic mPacketCharacteristic;
 
 	private final SecureBluetoothCallback mBluetoothCallback = new SecureBluetoothCallback();
+
+	private Intent performDfuIntent;
 
 	protected class SecureBluetoothCallback extends BaseCustomBluetoothCallback {
 
@@ -225,6 +228,8 @@ class SecureDfuImpl extends BaseCustomDfuImpl {
 
 			final boolean allowResume = !intent.hasExtra(DfuBaseService.EXTRA_DISABLE_RESUME)
 					|| !intent.getBooleanExtra(DfuBaseService.EXTRA_DISABLE_RESUME, false);
+			final boolean allowAutoDisconnect = !intent.hasExtra(DfuBaseService.EXTRA_DISABLE_AUTO_DISCONNECT)
+					|| !intent.getBooleanExtra(DfuBaseService.EXTRA_DISABLE_AUTO_DISCONNECT, false);
 			if (!allowResume)
 				logi("Resume feature disabled. Performing fresh DFU");
 			try {
@@ -262,7 +267,14 @@ class SecureDfuImpl extends BaseCustomDfuImpl {
 			mService.sendLogBroadcast(DfuBaseService.LOG_LEVEL_INFO, "Disconnected by the remote device");
 
 			// We are ready with DFU, the device is disconnected, let's close it and finalize the operation.
-			finalize(intent, false);
+			if (allowAutoDisconnect || !mProgressInfo.isLastPart()) {
+				// if auto disconnect is allowed or it's not the last part of the update (multi part zip file)
+				finalize(intent, false);
+			} else if (mProgressInfo.isLastPart()) { // if auto disconnect is disallowed and it's the last part
+				// Notify the controlling layers of dfu completion
+				mProgressInfo.setProgress(DfuBaseService.PROGRESS_COMPLETED);
+				performDfuIntent = intent;
+			}
 		} catch (final UploadAbortedException e) {
 			// In secure DFU there is currently not possible to reset the device to application mode, so... do nothing
 			// The connection will be terminated in the DfuBaseService
@@ -889,6 +901,45 @@ class SecureDfuImpl extends BaseCustomDfuImpl {
 		}
 	}
 
+	@Override
+	public void finalizeDfu() {
+		loge("finalizeDfu");
+		if (mProgressInfo.isLastPart() &&
+				performDfuIntent != null &&
+				(mProgressInfo.getProgress() == DfuBaseService.PROGRESS_COMPLETED ||
+					mProgressInfo.getProgress() == DfuBaseService.PROGRESS_DISCONNECTING ||
+					mProgressInfo.isComplete() ||
+					mProgressInfo.isObjectComplete())) {
+			finalize(performDfuIntent, false);
+		}
+	}
+
+	@Override
+	public void write(@NonNull UUID characteristicUuid, @NonNull byte[] bytes) {
+		if (mProgressInfo.isLastPart() && mProgressInfo.isComplete()) {
+			BluetoothGattCharacteristic characteristic = findBluetoothGattCharacteristic(characteristicUuid);
+			if (characteristic != null) {
+				String msg = "write uuid " + characteristicUuid.toString() + ": ";
+				try {
+					writeOpCode(characteristic, bytes);
+				} catch (DfuException e) {
+					if (e.getErrorNumber() == 133) {
+						logw(msg + e.getMessage());
+						mService.sendLogBroadcast(DfuBaseService.LOG_LEVEL_ERROR, msg + e.getMessage());
+					} else {
+						e.printStackTrace();
+						mService.sendLogBroadcast(DfuBaseService.LOG_LEVEL_ERROR, msg + e.getMessage());
+					}
+				} catch (DeviceDisconnectedException e) {
+					logw(msg + e.getMessage());
+					mService.sendLogBroadcast(DfuBaseService.LOG_LEVEL_ERROR, msg + e.getMessage());
+				} catch (UploadAbortedException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
 	private class ObjectInfo extends ObjectChecksum {
 		protected int maxSize;
 	}
@@ -897,4 +948,16 @@ class SecureDfuImpl extends BaseCustomDfuImpl {
 		protected int offset;
 		protected int CRC32;
 	}
+
+	private BluetoothGattCharacteristic findBluetoothGattCharacteristic(final UUID uuid) {
+		BluetoothGattCharacteristic characteristic;
+		for (BluetoothGattService service : mGatt.getServices()) {
+			characteristic = service.getCharacteristic(uuid);
+			if (characteristic != null) {
+				return characteristic;
+			}
+		}
+		return null;
+	}
+
 }

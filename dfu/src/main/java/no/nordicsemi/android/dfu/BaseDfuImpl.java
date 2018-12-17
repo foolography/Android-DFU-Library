@@ -30,6 +30,7 @@ import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.content.Intent;
 import android.os.Build;
+import android.support.annotation.NonNull;
 import android.support.annotation.RequiresApi;
 import android.util.Log;
 
@@ -264,6 +265,17 @@ import no.nordicsemi.android.dfu.internal.scanner.BootloaderScannerFactory;
 	public void onBondStateChanged(final int state) {
 		mRequestCompleted = true;
 		notifyLock();
+	}
+
+	@Override
+	public void finalizeDfu() {
+//		(new Exception("base layer finalize")).printStackTrace();
+		// in the base layer there's nothing to do for this
+	}
+
+	@Override
+	public void write(@NonNull UUID characteristicUuid, @NonNull byte[] bytes) {
+		// in the base layer there's nothing to do for this
 	}
 
 	@Override
