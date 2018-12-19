@@ -45,14 +45,12 @@ import android.database.Cursor;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Parcel;
 import android.os.ParcelUuid;
 import android.os.Parcelable;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.provider.MediaStore;
-import android.support.v4.app.NotificationCompat;
-import android.support.v4.content.LocalBroadcastManager;
+import androidx.core.app.NotificationCompat;
 import android.util.Log;
 
 import java.io.ByteArrayInputStream;
@@ -64,6 +62,7 @@ import java.lang.reflect.Method;
 import java.util.Locale;
 import java.util.UUID;
 
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import no.nordicsemi.android.dfu.internal.ArchiveInputStream;
 import no.nordicsemi.android.dfu.internal.HexInputStream;
 import no.nordicsemi.android.dfu.internal.exception.DeviceDisconnectedException;
