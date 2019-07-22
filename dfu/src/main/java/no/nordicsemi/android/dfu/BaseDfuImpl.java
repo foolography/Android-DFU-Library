@@ -510,8 +510,10 @@ import no.nordicsemi.android.dfu.internal.scanner.BootloaderScannerFactory;
 
 		characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
 		characteristic.setValue(value);
-		mService.sendLogBroadcast(DfuBaseService.LOG_LEVEL_VERBOSE, "Writing to characteristic " + characteristic.getUuid());
-		mService.sendLogBroadcast(DfuBaseService.LOG_LEVEL_DEBUG, "gatt.writeCharacteristic(" + characteristic.getUuid() + ")");
+		if (mService != null) {
+			mService.sendLogBroadcast(DfuBaseService.LOG_LEVEL_VERBOSE, "Writing to characteristic " + characteristic.getUuid());
+			mService.sendLogBroadcast(DfuBaseService.LOG_LEVEL_DEBUG, "gatt.writeCharacteristic(" + characteristic.getUuid() + ")");
+		}
 		mGatt.writeCharacteristic(characteristic);
 
 		// We have to wait for confirmation
