@@ -942,7 +942,7 @@ public abstract class DfuBaseService extends IntentService implements DfuProgres
 		super.onCreate();
 
 		DEBUG = isDebug();
-		logi("DFU service created. Version: " + BuildConfig.VERSION_NAME);
+		logi("DFU service created. Version: " + BuildConfig.LIBRARY_PACKAGE_NAME);
 		initialize();
 
 		final LocalBroadcastManager manager = LocalBroadcastManager.getInstance(this);
